@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reproductor Musical</title>
+    <style>
+        #resultado { display: none; } /* Oculta el texto escaneado */
+        body { text-align: center; font-family: Arial; }
+        button { padding: 10px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Escanea el código QR de una canción</h1>
+    <audio id="miReproductor" controls></audio>
+    <br>
+    <video id="video" width="100%" style="max-width: 400px;"></video>
+    <br>
+    <button id="iniciarCamara">Iniciar cámara trasera</button>
+    <button id="reiniciarCamara" style="display: none;">Cambiar cámara</button>
+
+    <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.min.js"></script>
+    <script>
+        const reproductor = document.getElementById('miReproductor');
+        const video = document.getElementById('video');
+        const iniciarCamara = document.getElementById('iniciarCamara');
+        const reiniciarCamara = document.getElementById('reiniciarCamara');
+        
+        let stream;
+        let usandoCamaraTrasera = true;
+
+        // Función para iniciar la cámara trasera
+        iniciarCamara.addEventListener('click', async () => {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: usandoCamaraTrasera ? "environment" : "user",
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                });
+                video.srcObject = stream;
+                video.play();
+                iniciarCamara.style.display = 'none';
+                reiniciarCamara.style.display = 'block';
+                escanearQR();
+            } catch (error) {
+                alert("Error al acceder a la cámara: " + error.message);
+            }
+        });
+
+        // Función para cambiar entre cámara trasera/delantera
+        reiniciarCamara.addEventListener('click', () => {
+            usandoCamaraTrasera = !usandoCamaraTrasera;
+            detenerCamara();
+            iniciarCamara.click();
+        });
+
+        // Escanear QR sin mostrar texto
+        function escanearQR() {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+
+            function tick() {
+                if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                    const qrCode = jsQR(imageData.data, imageData.width, imageData.height);
+
+                    if (qrCode) {
+                        reproductor.src = qrCode.data; // Reproduce directamente
+                        reproductor.play();
+                        detenerCamara();
+                    }
+                }
+                requestAnimationFrame(tick);
+            }
+            tick();
+        }
+
+        function detenerCamara() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+            }
+        }
+    </script>
+</body>
+</html>
